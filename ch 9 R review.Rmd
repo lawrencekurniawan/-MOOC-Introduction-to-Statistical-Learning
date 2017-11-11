@@ -3,41 +3,210 @@ title: "Ch 9 R"
 output: html_document
 ---
 
-```{r }
+alternative 1
+```{r}
+library(tidyverse)
 library(e1071)
-set.seed(10203)
-x <- matrix(rnorm(40), 100, 2)
-y <- rep(c(0,1), c(50,50))
-x[y==1,]=x[y==1,]+1
-plot(x, col = y+3, pch = 19)
+
+set.seed(34)
+
+train <- matrix(rnorm(1000), ncol = 10) %>%
+  as.tibble()
+train[51:100, 6:10] <- train[51:100, 6:10] + 1
+train$y <- as.factor(rep(0:1, each = 50))
+
+test <- matrix(rnorm(10000), ncol = 10) %>%
+  as.tibble()
+test[501:1000, 6:10] <- test[501:1000, 6:10] + 1
+test$y <- as.factor(rep(0:1, each = 500))
+
+svmfit.fn <- function(data, index) {
+  #all the selected indexes are training index
+  svmfit <- svm(y ~ ., data = data[index,]) #generate the svm classification model using the training data
+  
+  test$yhat <- predict(svmfit, (test %>% select(-y))) #perform the classification on test set using the previously made model. but first the data need to not have the y column because the model only used the x columns. 
+  
+  test <- test %>%
+    mutate(accurate = ifelse(y == yhat, 1, 0)) #true if correctly predicted the y. 
+  
+  error <- 1-mean(test$accurate) #to calculate error rate, need to sum all the Fs. since T = 1 and F = 0, then the mean will give us the accuracy rate. error rate = 1 - accurate rate
+  
+  return(error) 
+}
+
+svmfit.fn(train, sample(1:100, 100, replace = T))
+
+boot.out <- boot(train, svmfit.fn, R = 1000)
+
+boot.out
+plot(boot.out)
+
+```
+alternative 2 -- seems like this is the correct answer. it uses diag().
+```{r}
+set.seed(34)
+
+#diag create 10x10 matrix with 1 for diagonal and 0 for non-diagonals. rep(0,10) creates vector of 10 0s -- this corresponds to the mean. 50 means create 50 rows. 
+  
+  #the 10×10 identity matrix; that is, the 10×10 matrix whose diagonal elements are all 1s and whose off-diagonal elements are all 0s. The 1s on the diagonal imply that the each of the elements of xi has variance 1, and the 0s on the off-diagonals imply that the elements of xi are independent.
+
+train0 <- mvrnorm(50, rep(0, 10), diag(10))
+train1 <- mvrnorm(50, rep(c(1,0), c(5,5)), diag(10))
+train01 <- rbind(train0, train1)
+trainy <- as.factor(rep(0:1, each = 50))
+train <- data.frame(train01, y  = trainy)
+
+test0 <- mvrnorm(500, rep(0, 10), diag(10))
+test1 <- mvrnorm(500, rep(c(1,0), c(5,5)), diag(10))
+test01 <- rbind(test0, test1)
+testy <- as.factor(rep(0:1, each = 500))
+test <- data.frame(test01, y  = testy)
+
+svmfit.fn(train, sample(1:100, 100, replace = T))
+
+boot.out <- boot(train, svmfit.fn, R = 1000)
+
+boot.out
+plot(boot.out)
+```
+
+
+answer from asadoughi (https://github.com/asadoughi/stat-learning/blob/master/ch9/9.R)
+```{r}
+
+library(MASS)
+
+svm_error <- function() {
+  #generate a random training sample to train on + fit
+  
+  x0 <- mvrnorm(50, rep(0, 10), diag(10)) #diag create 10x10 matrix with 1 for diagonal and 0 for non-diagonals. rep(0,10) creates vector of 10 0s -- this corresponds to the mean. 50 means create 50 rows. 
+  
+  #the 10×10 identity matrix; that is, the 10×10 matrix whose diagonal elements are all 1s and whose off-diagonal elements are all 0s. The 1s on the diagonal imply that the each of the elements of xi has variance 1, and the 0s on the off-diagonals imply that the elements of xi are independent.
+  
+  x1 <- mvrnorm(50, rep(c(1,0), c(5,5)), diag(10))
+  
+  train <- rbind(x0,x1)
+  classes <- rep(c(0,1), c(50,50))
+  dat <- data.frame(train, classes = as.factor(classes))
+  
+  #fit
+  svmfit <- svm(classes ~ ., data = dat)
+  
+  #evaluate the number of mistakes we made on a large test set = 1000 samples
+  
+  test_x0 <- mvrnorm(500,rep(0,10), diag(10))
+  test_x1 <- mvrnorm(500, rep(c(1,0), c(5,5)), diag(10))
+  test <- rbind(test_x0, test_x1)
+  test_classes <- rep(c(0,1), c(500, 500))
+  test_dat <- data.frame(test, test_classes = as.factor(test_classes))
+  fit <- predict(svmfit, test_dat)
+  #fit <- ifelse(fit < 0.5, 0, 1)
+  error <- sum(fit != test_dat$test_classes) / 1000
+  
+  return(error)
+}
+
+svm_error()
+
+errors = replicate(1000, svm_error())
+
+print(mean(errors))
+
+```
+
+9.R.2
+```{r}
+svmfit.fn <- function(data, index) {
+  #all the selected indexes are training index
+  svmfit <- svm(y ~ ., data = data[index,], kernel = "linear") #generate the svm classification model using the training data
+  
+  test$yhat <- predict(svmfit, (test %>% select(-y))) #perform the classification on test set using the previously made model. but first the data need to not have the y column because the model only used the x columns. 
+  
+  test <- test %>%
+    mutate(accurate = ifelse(y == yhat, 1, 0)) #true if correctly predicted the y. 
+  
+  error <- 1-mean(test$accurate) #to calculate error rate, need to sum all the Fs. since T = 1 and F = 0, then the mean will give us the accuracy rate. error rate = 1 - accurate rate
+  
+  return(error) 
+}
+
+svmfit.fn(train, sample(1:100, 100, replace = T))
+
+boot.out <- boot(train, svmfit.fn, R = 1000)
+
+boot.out
+plot(boot.out)
+```
+
+9.R.3
+```{r}
+train0 <- mvrnorm(50, rep(0, 10), diag(10))
+train1 <- mvrnorm(50, rep(c(1,0), c(5,5)), diag(10))
+train01 <- rbind(train0, train1)
+trainy <- as.factor(rep(0:1, each = 50))
+train <- data.frame(train01, y  = trainy)
+
+test0 <- mvrnorm(500, rep(0, 10), diag(10))
+test1 <- mvrnorm(500, rep(c(1,0), c(5,5)), diag(10))
+test01 <- rbind(test0, test1)
+testy <- as.factor(rep(0:1, each = 500))
+test <- data.frame(test01, y  = testy)
+
+svmfit.fn <- function(data, index) {
+  #all the selected indexes are training index
+  svmfit <- glm(y ~ ., data = data[index,], family = "binomial") 
+  
+  test$yhat <- predict(svmfit, test) #perform the classification on test set using the previously made model. but first the data need to not have the y column because the model only used the x columns. 
+  
+  test <- test %>%
+    mutate(yhat = ifelse(yhat < 0.5, 0, 1)) %>% #below 0.5 means 0 (F)
+    mutate(accurate = ifelse(y == yhat, T, F))
+  
+  error <- 1-mean(test$accurate) #to calculate error rate, need to sum all the Fs. since T = 1 and F = 0, then the mean will give us the accuracy rate. error rate = 1 - accurate rate
+  
+  return(error) 
+}
+
+svmfit.fn(train, sample(1:100, 100, replace = T))
+
+boot.out <- boot(train, svmfit.fn, R = 1000)
+
+boot.out
+plot(boot.out)
+
 ```
 
 ```{r}
-dat=data.frame(x,y=as.factor(y))
-dat
-svmfit=svm(y~.,data=dat)
-print(svmfit)
-plot(svmfit,dat)
-```
+svm_error <- function() {
+  # 1) generate a random training sample to train on + fit
 
+  # build training set
+  x0 = mvrnorm(50,rep(0,10),diag(10))
+  x1 = mvrnorm(50,rep(c(1,0),c(5,5)),diag(10))
+  train = rbind(x0,x1)
+  classes = rep(c(0,1),c(50,50))
+  dat=data.frame(train,classes=as.factor(classes))
 
-```{r }
-x.test <- matrix(rnorm(40), 1000, 2)
-y.test <- rep(c(0,1), c(500,500))
-x.test[y.test==1,]=x.test[y.test==1,]+1
-dat.test=data.frame(x.test,y.test=as.factor(y.test))
-dat.test
+  # fit
+  # svmfit=svm(classes~.,data=dat,kernel="linear")
+  svmfit = glm(classes~., data=dat, family="binomial")
 
-dat.test$yhat.test <- predict(svmfit, dat.test[,1:2])
-dat.test
+  # 2) evaluate the number of mistakes we make on a large test set = 1000 samples
+  test_x0 = mvrnorm(500,rep(0,10),diag(10))
+  test_x1 = mvrnorm(500,rep(c(1,0),c(5,5)),diag(10))
+  test = rbind(test_x0,test_x1)
+  test_classes = rep(c(0,1),c(500,500))
+  test_dat = data.frame(test,test_classes=as.factor(test_classes))
+  fit = predict(svmfit,test_dat)
+  fit = ifelse(fit < 0.5, 0, 1)
+  error = sum(fit != test_dat$test_classes)/1000
 
-dat.test <- dat.test %>% mutate(accurate = ifelse(y.test == yhat.test, T, F))
+  return(error)
+}
 
-dat.test
-```
-calculate accuracy
-```{r}
-1-mean(dat.test$accurate)
+# 3) repeat (1-2) many times and averaging the error rate for each trial
+errors = replicate(1000, svm_error())
 
+print(mean(errors))
 ```
 
