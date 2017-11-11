@@ -1,0 +1,71 @@
+---
+title: "ISL 5.R"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+filepath <- '/Users/lawrence.wong/Projects/Stats and DS/Stanford ISL MOOC/'
+
+load(paste0(filepath, '5.R.Rdata'))
+
+library(boot)
+library(tidyverse)
+
+```
+
+```{r}
+Xy
+
+glm.fit <- glm(y ~ X1 + X2, data = Xy)
+
+summary(glm.fit)
+
+cv.glm(Xy, glm.fit)$delta
+
+cv.glm(Xy, glm.fit, K = 10)$delta
+```
+```{r}
+Xy
+
+matplot(Xy,type="l", verbose = T)
+
+legend("topright", names(Xy), lty = 1:3, col = 1:3)
+
+Xy %>%
+  ggplot() +
+  geom_point(aes(x = X1, y = y)) +
+  geom_abline(slope = glm.fit[[1]][[2]], intercept = glm.fit[[1]][[1]])
+```
+
+```{r}
+glm.fn <- function(data, index) {
+  coefficients(glm(y ~ ., data = data[index,])) #pulls out the coefficient for X1 only.
+}
+
+glm.fn(Xy, 1:1000)
+
+set.seed(1)
+boot.out <- boot(data = Xy, statistic = glm.fn, R = 1000)
+
+boot.out
+```
+
+```{r}
+
+new.rows = c(101:200, 401:500, 101:200, 901:1000, 301:400, 1:100, 1:100, 801:900, 201:300, 701:800)
+
+new.Xy = Xy[new.rows, ]
+
+new.Xy
+
+beta.fn <- function(data) {
+  coefficients(glm(y ~ ., data = data))
+}
+
+tsboot(Xy, beta.fn, sim = 'fixed', l = 100, R = 1000)
+
+
+```
+
