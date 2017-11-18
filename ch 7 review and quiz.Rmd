@@ -1,0 +1,63 @@
+---
+title: "ch 7 R review"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+load("7.R.RData")
+
+```
+
+Q1
+Load the data from the file 7.R.RData, and plot it using plot(x,y). What is the slope coefficient in a linear regression of y on x (to within 10%)?
+
+
+```{r}
+plot(x, y)
+
+all <- as.data.frame(cbind(x, y))
+
+lmod <- lm(y ~ x, data = all)
+
+summary(lmod)
+```
+
+Q2
+For the model y ~ 1+x+x^2, what is the coefficient of x (to within 10%)?
+
+```{r}
+lmod2 <- lm(y ~ 1 + x + poly(x, 2, raw = T), data = all) #if raw = T is not set, then orthogonal polynomial will be given, which is not what you want (not sure why)
+
+summary(lmod2)
+
+#alternative answer
+lmod3 <- lm(y ~ 1 + x + I(x^2))
+
+summary(lmod3)
+```
+
+7.Q.1
+Suppose we want to fit a generalized additive model (with a continuous response) for y against X1 and X2. Suppose that we are using a cubic spline with four knots for each variable (so our model can be expressed as a linear regression after the right basis expansion).
+
+Suppose that we fit our model by the following three steps:
+
+1) First fit our cubic spline model for y against X1, obtaining the fit f^1(x) and residuals ri=yi−f^1(Xi,1).
+
+2) Then, fit a cubic spline model for r against X2 to obtain f^2(x).
+
+3) Finally construct fitted values y^i=f^1(Xi,1)+f^2(Xi,2).
+
+Will we get the same fitted values as we would if we fit the additive model for y against X1 and X2 jointly?
+
+```{r}
+set.seed(42)
+
+x1 <- rnorm(1000)
+x2 <- abs(x1)
+
+gammod <- gam(y ~ )
+
+```
+
