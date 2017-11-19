@@ -28,7 +28,7 @@ Q2
 For the model y ~ 1+x+x^2, what is the coefficient of x (to within 10%)?
 
 ```{r}
-lmod2 <- lm(y ~ 1 + x + poly(x, 2, raw = T), data = all) #if raw = T is not set, then orthogonal polynomial will be given, which is not what you want (not sure why)
+lmod2 <- lm(y ~ 1 + x + poly(x, 2, raw = T), data = all) #if raw = T is not set, then orthogonal polynomial will be given, which is not what you want (not sure why) -- in the first R video (min 3:20) it was like in regression with uncorrelated predictors
 
 summary(lmod2)
 
@@ -51,13 +51,87 @@ Suppose that we fit our model by the following three steps:
 
 Will we get the same fitted values as we would if we fit the additive model for y against X1 and X2 jointly?
 
+Answer: Not necessarily, even if x1 and x2 are uncorrelated. If X1 and X2 are uncorrelated, and we are only fitting a linear regression (only linear terms for X1 X2 ) then this method would work. However, even if X1 and X2 are uncorrelated, the nonlinear basis functions might be.
+
 ```{r}
 set.seed(42)
 
 x1 <- rnorm(1000)
 x2 <- abs(x1)
+x3 <- x1 +2
+y <- rnorm(1000) + rnorm(1000)
 
-gammod <- gam(y ~ )
+cor(x1, x2) #uncorrelated
+cor(x1, x3) #perfect correlation
+
+dat <- as.data.frame(cbind(x1, x2, y))
+
+#1st step specified in the question
+gammod <- lm(y ~ bs(x1, df = 5), data = dat) #as per my understanding, df = 5 because the question specificied 4 knots and i think the formula for the knot is df-degree (1 if intercept). so to get 4 knots, need 5 df.
+summary(gammod)
+dat$pred <- predict(gammod, newdata = dat)
+dat$resid <- dat$y - dat$pred
+
+dat
+
+#2nd step
+gammod2 <- lm(resid ~ bs(x2, df = 5), data = dat)
+
+dat$pred2 <- predict(gammod2, newdata = dat)
+dat$resid2 <- dat$resid - dat$pred2
+
+dat
+
+#3rd step
+dat$finalfit <- dat$pred + dat$pred2
+dat
+
+#fitting the model in 1 go (jointly)
+jointmod <- gam(y ~ s(x1, df = 5) + s(x2, df = 5), data = dat)
+dat$pred3 <- predict(jointmod, newdata = dat)
+dat
+
+```
+
+If X1 and X2 are uncorrelated, and we are only fitting a linear regression (only linear terms for X1 X2 ) then this method would work. However, even if X1 and X2 are uncorrelated, the nonlinear basis functions might be.
+below is the example for linear regression. pred3 and finalfit are very similar (x1 and x2 have very small correlation)
+```{r}
+set.seed(42)
+
+x1 <- rnorm(1000)
+x2 <- abs(x1)
+x3 <- x1 +2
+y <- rnorm(1000) + rnorm(1000)
+
+cor(x1, x2) #uncorrelated
+cor(x1, x3) #perfect correlation
+
+dat <- as.data.frame(cbind(x1, x2, y))
+
+#1st step specified in the question
+gammod <- lm(y ~ x1, data = dat) #as per my understanding, df = 5 because the question specificied 4 knots and i think the formula for the knot is df-degree (1 if intercept). so to get 4 knots, need 5 df.
+summary(gammod)
+dat$pred <- predict(gammod, newdata = dat)
+dat$resid <- dat$y - dat$pred
+
+dat
+
+#2nd step
+gammod2 <- lm(resid ~ x2, data = dat)
+
+dat$pred2 <- predict(gammod2, newdata = dat)
+dat$resid2 <- dat$resid - dat$pred2
+
+dat
+
+#3rd step
+dat$finalfit <- dat$pred + dat$pred2
+dat
+
+#fitting the model in 1 go (jointly)
+jointmod <- lm(y ~ x1 + x2, data = dat)
+dat$pred3 <- predict(jointmod, newdata = dat)
+dat
 
 ```
 
